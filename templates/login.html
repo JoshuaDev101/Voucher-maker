@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Login - Voucher Maker</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<div class="login-wrap">
+  <form class="card login-card" method="POST">
+    <h1>Voucher Maker</h1>
+    <p>Enter admin password.</p>
+    {% if error %}<p class="status error">{{ error }}</p>{% endif %}
+    <label>Password
+      <input type="password" name="password" autofocus required>
+    </label>
+    <button class="primary" type="submit">Login</button>
+  </form>
+</div>
+</body>
+</html>

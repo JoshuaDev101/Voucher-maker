@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Voucher Preview</title>
+  <style>
+    *{box-sizing:border-box}
+    body{font-family:Arial,sans-serif;background:#f2f2f2;margin:0;padding:20px;color:#111}
+    .top{max-width:900px;margin:auto auto 20px;display:flex;justify-content:space-between;align-items:center;gap:10px}
+    .sheet{max-width:900px;margin:auto;display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
+    .voucher{background:#fff;border:2px solid #111;text-align:center;overflow:hidden}
+    .brand{background:#ff4d00;color:white;font-weight:bold;padding:7px}
+    .code{font-size:28px;font-weight:bold;letter-spacing:1px;padding-top:14px}
+    .duration{font-size:14px;margin-top:5px}
+    .price{font-size:22px;font-weight:bold;padding:4px 0 16px}
+    button{border:0;padding:12px 18px;border-radius:9px;cursor:pointer;font-weight:bold}
+    .primary{background:#111;color:#fff}
+    @media print{
+      body{background:#fff;padding:0}
+      .top{display:none}
+      .sheet{display:block;max-width:none}
+      .voucher{page-break-inside:avoid;margin:0 0 3mm}
+      @page{margin:2mm}
+    }
+  </style>
+</head>
+<body>
+<div class="top">
+  <div>
+    <h2>Preview</h2>
+    <div>{{ codes|length }} vouchers</div>
+  </div>
+  <form method="POST" action="/printable" target="_blank">
+    <textarea name="codes" hidden>{{ codes|join('\n') }}</textarea>
+    <button class="primary" type="submit">Open Thermal Print Layout</button>
+  </form>
+</div>
+
+<div class="sheet">
+  {% for code in codes %}
+  <div class="voucher">
+    <div class="brand">{{ config.brand }}</div>
+    <div class="code">{{ code }}</div>
+    <div class="duration">{{ config.duration }}</div>
+    <div class="price">{{ config.price }}</div>
+  </div>
+  {% endfor %}
+</div>
+</body>
+</html>

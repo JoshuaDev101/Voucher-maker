@@ -1,0 +1,233 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Gravoso Voucher Maker</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<div class="app">
+  <header>
+    <div>
+      <h1>Gravoso Voucher Maker</h1>
+      <p>Paste or upload voucher codes, preview them, then print.</p>
+    </div>
+    <button class="secondary" onclick="toggleSettings()">Settings</button>
+  </header>
+
+  <main>
+    <section class="card">
+      <div class="row between">
+        <h2>Voucher Codes</h2>
+        <span id="count">0 codes</span>
+      </div>
+
+      <textarea id="codes" placeholder="One code per line&#10;Example:&#10;6idHR1&#10;Twd1YX&#10;SG1nGK"></textarea>
+
+      <div class="actions wrap">
+        <label class="upload-btn">
+          Upload TXT
+          <input type="file" id="fileInput" accept=".txt,text/plain" hidden>
+        </label>
+        <button class="secondary" onclick="clearCodes()">Clear</button>
+        <button onclick="openPreview()">Preview</button>
+        <button class="primary" onclick="printDirect()">Print Direct</button>
+      </div>
+
+      <p id="status" class="status"></p>
+    </section>
+
+    <section class="card">
+      <h2>Quick Info</h2>
+      <div class="info-grid">
+        <div><span>Brand</span><strong id="infoBrand">{{ config.brand }}</strong></div>
+        <div><span>Duration</span><strong id="infoDuration">{{ config.duration }}</strong></div>
+        <div><span>Price</span><strong id="infoPrice">{{ config.price }}</strong></div>
+        <div><span>Paper</span><strong id="infoPaper">{{ config.paper_width }}mm</strong></div>
+        <div><span>Printer</span><strong id="infoPrinter">{{ config.printer_name or 'Not selected' }}</strong></div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<div id="settingsModal" class="modal hidden">
+  <div class="modal-box">
+    <div class="row between">
+      <h2>Settings</h2>
+      <button class="icon" onclick="toggleSettings()">✕</button>
+    </div>
+
+    <label>Brand / Header
+      <input id="brand" value="{{ config.brand }}">
+    </label>
+
+    <label>Duration
+      <input id="duration" value="{{ config.duration }}">
+    </label>
+
+    <label>Price
+      <input id="price" value="{{ config.price }}">
+    </label>
+
+    <label>Paper width
+      <select id="paperWidth">
+        <option value="58" {% if config.paper_width == '58' %}selected{% endif %}>58mm</option>
+        <option value="80" {% if config.paper_width == '80' %}selected{% endif %}>80mm</option>
+      </select>
+    </label>
+
+    <label>CUPS Printer
+      <div class="row gap">
+        <select id="printerName">
+          <option value="{{ config.printer_name }}">{{ config.printer_name or 'Select printer' }}</option>
+        </select>
+        <button class="secondary" onclick="loadPrinters()">Refresh</button>
+      </div>
+    </label>
+
+    <label>Admin Password
+      <input id="adminPassword" type="password" placeholder="Leave blank for no password">
+    </label>
+
+    <div class="actions">
+      <button class="primary" onclick="saveSettings()">Save Settings</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const codes = document.getElementById("codes");
+const fileInput = document.getElementById("fileInput");
+const count = document.getElementById("count");
+const statusEl = document.getElementById("status");
+
+function getCodes() {
+  return codes.value.split(/\r?\n/).map(x => x.trim()).filter(Boolean);
+}
+
+function updateCount() {
+  count.textContent = `${getCodes().length} codes`;
+}
+
+function setStatus(msg, ok=true) {
+  statusEl.textContent = msg;
+  statusEl.className = ok ? "status ok" : "status error";
+}
+
+function clearCodes() {
+  codes.value = "";
+  updateCount();
+  setStatus("");
+}
+
+function toggleSettings() {
+  document.getElementById("settingsModal").classList.toggle("hidden");
+}
+
+codes.addEventListener("input", updateCount);
+
+fileInput.addEventListener("change", async () => {
+  if (!fileInput.files.length) return;
+  const fd = new FormData();
+  fd.append("file", fileInput.files[0]);
+
+  const res = await fetch("/api/upload", {method:"POST", body:fd});
+  const data = await res.json();
+  if (!data.ok) {
+    setStatus(data.error || "Upload failed.", false);
+    return;
+  }
+  codes.value = data.codes.join("\n");
+  updateCount();
+  setStatus(`Loaded ${data.count} voucher codes.`);
+});
+
+function openPreview() {
+  if (!getCodes().length) {
+    setStatus("Add voucher codes first.", false);
+    return;
+  }
+
+  const form = document.createElement("form");
+  form.method = "POST";
+  form.action = "/preview";
+  form.target = "_blank";
+
+  const input = document.createElement("textarea");
+  input.name = "codes";
+  input.value = codes.value;
+  input.hidden = true;
+
+  form.appendChild(input);
+  document.body.appendChild(form);
+  form.submit();
+  form.remove();
+}
+
+async function printDirect() {
+  if (!getCodes().length) {
+    setStatus("Add voucher codes first.", false);
+    return;
+  }
+
+  setStatus("Sending to printer...");
+  const res = await fetch("/api/print", {
+    method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({codes:codes.value})
+  });
+
+  const data = await res.json();
+  setStatus(data.message || data.error || "Done.", !!data.ok);
+}
+
+async function loadPrinters() {
+  const select = document.getElementById("printerName");
+  select.innerHTML = '<option>Loading...</option>';
+
+  const res = await fetch("/api/printers");
+  const data = await res.json();
+
+  select.innerHTML = '<option value="">Select printer</option>';
+  (data.printers || []).forEach(p => {
+    const opt = document.createElement("option");
+    opt.value = p;
+    opt.textContent = p;
+    select.appendChild(opt);
+  });
+}
+
+async function saveSettings() {
+  const payload = {
+    brand: document.getElementById("brand").value,
+    duration: document.getElementById("duration").value,
+    price: document.getElementById("price").value,
+    paper_width: document.getElementById("paperWidth").value,
+    printer_name: document.getElementById("printerName").value,
+    admin_password: document.getElementById("adminPassword").value
+  };
+
+  const res = await fetch("/api/settings", {
+    method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body:JSON.stringify(payload)
+  });
+
+  const data = await res.json();
+  if (!data.ok) return setStatus("Could not save settings.", false);
+
+  document.getElementById("infoBrand").textContent = data.config.brand;
+  document.getElementById("infoDuration").textContent = data.config.duration;
+  document.getElementById("infoPrice").textContent = data.config.price;
+  document.getElementById("infoPaper").textContent = data.config.paper_width + "mm";
+  document.getElementById("infoPrinter").textContent = data.config.printer_name || "Not selected";
+
+  toggleSettings();
+  setStatus("Settings saved.");
+}
+
+updateCount();
+</script>
+</body>
+</html>
