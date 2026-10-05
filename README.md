@@ -1,4 +1,4 @@
-# Gravoso Voucher Maker
+# Voucher Maker
 
 A lightweight local web app for Orange Pi / Armbian / Debian / Ubuntu.
 
